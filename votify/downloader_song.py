@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import datetime
 import logging
 from pathlib import Path
@@ -310,6 +311,9 @@ class DownloaderSong(DownloaderAudio):
         decrypted_path = None
         remuxed_path = None
 
+        # TOOD: Print out metadata to console as JSON
+        print(json.dumps(tags, indent=2))
+        
         #if self.lrc_only:
         #    pass
         if final_path.exists() and not self.downloader.overwrite:
