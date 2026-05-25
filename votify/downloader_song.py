@@ -134,6 +134,7 @@ class DownloaderSong(DownloaderAudio):
             reason = track_info.get("playabilityReason") or track_info.get("unplayableReason")
 
         tags = {
+            "id": track_info.get("id"),
             "album": album_info.get("name"),
             "album_artist": self.downloader.get_artist_string(album_artists),
             "artist": self.downloader.get_artist_string(track_artists),
