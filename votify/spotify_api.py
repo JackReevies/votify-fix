@@ -1128,6 +1128,42 @@ class SpotifyApi:
         artist_albums = response.json()['data']['artistUnion']['relatedContent']['appearsOn']
         return self._select_and_queue(artist_albums, "Collaborations")
 
+    def get_artist_discography_ids(self, artist_id: str) -> list[str]:
+        self._refresh_session_auth()
+        ids = []
+        for op_name, discog_key in (
+            ("queryArtistDiscographyAlbums", "albums"),
+            ("queryArtistDiscographySingles", "singles"),
+        ):
+            payload = {
+                "variables": {
+                    "uri": f"spotify:artist:{artist_id}",
+                    "offset": 0,
+                    "limit": 5000,
+                    "order": "DATE_DESC",
+                },
+                "operationName": op_name,
+                "extensions": {
+                    "persistedQuery": {
+                        "version": 1,
+                        "sha256Hash": "5e07d323febb57b4a56a42abbf781490e58764aa45feb6e3dc0591564fc56599",
+                    }
+                },
+            }
+            response = self.session.post(self.METADATA_API_URL, json=payload)
+            check_response(response)
+            discography = response.json()["data"]["artistUnion"]["discography"][discog_key]
+            if isinstance(discography, dict) and "items" in discography:
+                for entry in discography["items"]:
+                    try:
+                        if "releases" in entry and "items" in entry["releases"]:
+                            album_id = entry["releases"]["items"][0].get("id")
+                            if album_id:
+                                ids.append(album_id)
+                    except Exception:
+                        continue
+        return list(dict.fromkeys(ids))
+
     def _select_and_queue(self, data_input: any, category_name: str) -> list[str]:
         raw_items = []
         if isinstance(data_input, dict) and 'items' in data_input:

@@ -649,7 +649,10 @@ def main(
                                                 'owner_name': getattr(url_info, 'owner', 'Unknown')}
 
             if url_info.type == "artist":
-                download_queue = downloader.get_download_queue_from_artist(url_info.id)
+                if only_metadata:
+                    download_queue = downloader.get_download_queue_from_artist_all(url_info.id)
+                else:
+                    download_queue = downloader.get_download_queue_from_artist(url_info.id)
             else:
                 download_queue = downloader.get_download_queue(
                     url_info.type,
@@ -665,7 +668,7 @@ def main(
 
         collection_tags = []
 
-        if url_info.type in ("collection", "playlist") and only_metadata:
+        if url_info.type in ("collection", "playlist", "artist") and only_metadata:
             for download_queue_item in download_queue:
                 if isinstance(download_queue_item, dict):
                     media_metadata = download_queue_item.get("media_metadata", download_queue_item)
@@ -675,6 +678,8 @@ def main(
                 collection_tags.append(tags)
             print(json.dumps(collection_tags))
             continue
+
+        print(json.dumps(download_queue))
 
         for index, download_queue_item in enumerate(download_queue, start=1):
             queue_progress = color_text(
@@ -782,7 +787,7 @@ def main(
                     safe_playlist_metadata = global_playlist_metadata
 
                 if media_type == "track":
-                    if only_metadata and url_info.type in ("collection", "playlist"):
+                    if only_metadata and url_info.type in ("collection", "playlist", "artist"):
                         tags = downloader_song.build_tags(
                             track_id=media_id,
                             track_metadata=media_metadata_for_download,
@@ -857,7 +862,7 @@ def main(
                     )
                     time.sleep(wait_interval)
 
-        if url_info.type in ("collection", "playlist") and only_metadata:
+        if url_info.type in ("collection", "playlist", "artist") and only_metadata:
             print(json.dumps(collection_tags))
 
     logger.info(f"Done ({error_count} error(s))")

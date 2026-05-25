@@ -476,6 +476,18 @@ class Downloader:
 
         return download_queue
 
+    def get_download_queue_from_artist_all(self, artist_id: str) -> list[dict]:
+        download_queue = []
+        album_ids = self.spotify_api.get_artist_discography_ids(artist_id)
+        if album_ids:
+            for album_id in album_ids:
+                try:
+                    download_queue.extend(
+                        self.get_download_queue("album", album_id)
+                    )
+                except Exception:
+                    continue
+        return download_queue
 
     def get_cover_url(self, metadata: dict, cover_size_mapping: dict) -> str | None:
         if not isinstance(metadata, dict):
