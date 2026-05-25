@@ -793,6 +793,104 @@ class SpotifyApi:
         check_response(response)
         return response.json()
 
+    def get_collection_tracks(self) -> list[dict]:
+        self._refresh_session_auth()
+        all_tracks = []
+        limit = 100
+        offset = 0
+        while True:
+            payload = {
+                "variables": {
+                    "uri": "spotify:playlist:37i9dQZF1F5p3rmiWPIYgZ",
+                    "offset": offset,
+                    "limit": limit,
+                    "enableWatchFeedEntrypoint": True,
+                    "includeEpisodeContentRatingsV2": False,
+                },
+                "operationName": "fetchPlaylist",
+                "extensions": {
+                    "persistedQuery": {
+                        "version": 1,
+                        "sha256Hash": "a65e12194ed5fc443a1cdebed5fabe33ca5b07b987185d63c72483867ad13cb4",
+                    }
+                },
+            }
+            response = self.session.post(
+                self.METADATA_API_URL,
+                json=payload,
+            )
+            check_response(response)
+            data = response.json()
+            playlist = data.get("data", {}).get("playlistV2", {})
+            items_list = playlist.get("content", {}).get("items", [])
+            if not items_list:
+                break
+            for item in items_list:
+                if "itemV2" not in item or "data" not in item["itemV2"]:
+                    continue
+                t = item["itemV2"]["data"]
+                if "uri" not in t:
+                    continue
+                track_id = t["uri"].split(":")[-1]
+                duration_ms = 0
+                if "duration" in t and isinstance(t["duration"], dict):
+                    duration_ms = t["duration"].get("totalMilliseconds", 0)
+                elif "trackDuration" in t and isinstance(t["trackDuration"], dict):
+                    duration_ms = t["trackDuration"].get("totalMilliseconds", 0)
+                album_data = t.get("albumOfTrack", {})
+                if "uri" in album_data and "id" not in album_data:
+                    album_data["id"] = album_data["uri"].split(":")[-1]
+                if "date" in album_data and isinstance(album_data["date"], dict):
+                    date_obj = album_data["date"]
+                    if "isoString" in date_obj and date_obj["isoString"]:
+                        album_data["release_date"] = date_obj["isoString"]
+                        album_data["release_date_precision"] = "day"
+                    elif "year" in date_obj and date_obj["year"]:
+                        album_data["release_date"] = str(date_obj["year"])
+                        album_data["release_date_precision"] = "year"
+                if "release_date" not in album_data:
+                    album_data["release_date"] = "1970-01-01"
+                    album_data["release_date_precision"] = "day"
+                artist_name = "Unknown Artist"
+                try:
+                    if "artists" in t and "items" in t["artists"] and len(t["artists"]["items"]) > 0:
+                        profile = t["artists"]["items"][0].get("profile")
+                        if profile:
+                            artist_name = profile.get("name", "Unknown Artist")
+                except Exception:
+                    pass
+                is_playable = t.get("isPlayable", True)
+                track_object = {
+                    "data": {
+                        "trackUnion": {
+                            "id": track_id,
+                            "uri": t["uri"],
+                            "__typename": "Track",
+                            "name": t.get("name", "Unknown Track"),
+                            "trackNumber": t.get("trackNumber", 1),
+                            "duration": {
+                                "totalMilliseconds": duration_ms
+                            },
+                            "isPlayable": is_playable,
+                            "albumOfTrack": album_data,
+                            "artists": {
+                                "items": [
+                                    {
+                                        "profile": {
+                                            "name": artist_name
+                                        }
+                                    }
+                                ]
+                            },
+                        }
+                    }
+                }
+                all_tracks.append(track_object)
+            if len(items_list) < limit:
+                break
+            offset += limit
+        return all_tracks
+
     def extended_media_collection(
         self,
         next_url: str,

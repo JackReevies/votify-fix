@@ -91,10 +91,15 @@ class DownloaderSong(DownloaderAudio):
 
         current_uri = track_info.get("uri")
 
-        current_track_entry = next(
-            (item.get("track", {}) for item in album_metadata if item.get("track", {}).get("uri") == current_uri),
-            {}
-        )
+
+        try: 
+            current_track_entry = next(
+                (item.get("track", {}) for item in album_metadata if item.get("track", {}).get("uri") == current_uri),
+                {}
+            )
+        except Exception as e:
+            print(f"Error finding track in album: {e}")
+            current_track_entry = {}
 
         disc_number = current_track_entry.get("discNumber", 1)
 
@@ -186,19 +191,71 @@ class DownloaderSong(DownloaderAudio):
         finally:
             self.downloader.cleanup_temp_path()
 
-    def _download(
+    def build_tags_from_track_union(self, track_union_data: dict) -> dict:
+        track_info = track_union_data.get("data", {}).get("trackUnion", {})
+        album_info = track_info.get("albumOfTrack", {})
+
+        track_artists = []
+        raw_artist_items = track_info.get("firstArtist", {}).get("items", [])
+        other_artist_items = track_info.get("otherArtists", {}).get("items", [])
+        all_artist_items = raw_artist_items + other_artist_items
+        for item in all_artist_items:
+            name = item.get("profile", {}).get("name")
+            if name:
+                track_artists.append({"name": name})
+
+        if not track_artists:
+            alt_artists = track_info.get("artists", {}).get("items", [])
+            for item in alt_artists:
+                name = item.get("profile", {}).get("name") or item.get("name")
+                if name:
+                    track_artists.append({"name": name})
+
+        if not track_artists:
+            track_artists = [{"name": "Unknown Artist"}]
+
+        album_artists = []
+        album_artist_items = album_info.get("artists", {}).get("items", [])
+        for item in album_artist_items:
+            name = item.get("profile", {}).get("name") or item.get("name")
+            if name:
+                album_artists.append({"name": name})
+        if not album_artists:
+            album_artists = track_artists
+
+        release_date_iso = album_info.get("date", {}).get("isoString")
+        precision_raw = album_info.get("date", {}).get("precision")
+        if not release_date_iso:
+            release_date_iso = album_info.get("release_date")
+            precision_raw = album_info.get("release_date_precision")
+        precision = precision_raw.lower() if precision_raw else "day"
+        release_date_str = release_date_iso.split("T")[0] if release_date_iso else None
+        release_date_datetime_obj = self.downloader.get_release_date_datetime_obj(
+            release_date_str,
+            precision,
+        )
+
+        return {
+            "id": track_info.get("id"),
+            "album": album_info.get("name"),
+            "album_artist": self.downloader.get_artist_string(album_artists),
+            "artist": self.downloader.get_artist_string(track_artists),
+            "title": track_info.get("name"),
+            "url": f"https://open.spotify.com/track/{track_info.get('id')}",
+            "seconds": track_info.get("duration", {}).get("totalMilliseconds", 0) / 1000.0,
+            "duration": track_info.get("duration", {}).get("totalMilliseconds", 0) / 1000.0,
+            "main_artist": track_artists[0]["name"] if track_artists else "Unknown Artist"
+        }
+
+    def build_tags(
             self,
             track_id: str,
             track_metadata: dict = None,
             album_metadata: dict = None,
-            gid_metadata: dict = None,
-            stream_info: StreamInfoAudio = None,
             playlist_metadata: dict = None,
-            product_name: dict = None,
             playlist_track: int = None,
-            decryption_key: bytes = None,
-    ):
-        if not album_metadata:
+    ) -> dict:
+        if not track_metadata:
             logger.debug("Getting track metadata")
             track_metadata = self.downloader.spotify_api.get_track(track_id)
 
@@ -247,6 +304,78 @@ class DownloaderSong(DownloaderAudio):
             except (KeyError, TypeError):
                 pass
 
+        if self.lrc_only:
+            logger.debug("Getting lyrics")
+            lyrics = self.get_lyrics(track_id).synced
+        else:
+            try:
+                lyrics = self.get_lyrics(track_id).unsynced
+            except:
+                lyrics = Lyrics()
+
+        logger.debug("Getting track credits")
+        track_credits = self.downloader.spotify_api.get_track_credits(track_id)
+
+        tags = self.get_tags(
+            track_metadata,
+            album_metadata,
+            track_credits,
+            lyrics,
+        )
+
+        if playlist_metadata:
+            tags = {
+                **tags,
+                **self.downloader.get_playlist_tags(
+                    playlist_metadata,
+                    playlist_track,
+                ),
+            }
+
+        return tags
+
+    def _download(
+            self,
+            track_id: str,
+            track_metadata: dict = None,
+            album_metadata: dict = None,
+            gid_metadata: dict = None,
+            stream_info: StreamInfoAudio = None,
+            playlist_metadata: dict = None,
+            product_name: dict = None,
+            playlist_track: int = None,
+            decryption_key: bytes = None,
+    ):
+        tags = self.build_tags(
+            track_id,
+            track_metadata,
+            album_metadata,
+            playlist_metadata,
+            playlist_track,
+        )
+
+        file_extension = self.get_file_extension()
+        final_path = self.downloader.get_final_path(
+            "track",
+            tags,
+            file_extension,
+        )
+        lrc_path = self.downloader.get_lrc_path(final_path)
+        cover_path = self.get_cover_path(final_path)
+        cover_url = self.downloader.get_cover_url(
+            track_metadata,
+            COVER_SIZE_X_KEY_MAPPING_SONG,
+        )
+
+        decrypted_path = None
+        remuxed_path = None
+
+        print(json.dumps(tags))
+
+        if self.only_metadata:
+            logger.info(f'Only metadata requested, skipping download for "{tags.get("title", "")}"')
+            return
+
         if not gid_metadata:
             logger.debug("Getting GID metadata")
             try:
@@ -276,58 +405,6 @@ class DownloaderSong(DownloaderAudio):
                 info = '256 kb/s'
             logger.info(f"The current bit rate is {info}")
 
-        if self.lrc_only:
-            logger.debug("Getting lyrics")
-            lyrics = self.get_lyrics(track_id).synced
-        else:
-            try:
-                lyrics = self.get_lyrics(track_id).unsynced
-            except:
-                lyrics = Lyrics()
-
-        logger.debug("Getting track credits")
-        track_credits = self.downloader.spotify_api.get_track_credits(track_id)
-
-        tags = self.get_tags(
-            track_metadata,
-            album_metadata,
-            track_credits,
-            lyrics,
-        )
-
-        if playlist_metadata:
-            tags = {
-                **tags,
-                **self.downloader.get_playlist_tags(
-                    playlist_metadata,
-                    playlist_track,
-                ),
-            }
-
-        file_extension = self.get_file_extension()
-        final_path = self.downloader.get_final_path(
-            "track",
-            tags,
-            file_extension,
-        )
-        lrc_path = self.downloader.get_lrc_path(final_path)
-        cover_path = self.get_cover_path(final_path)
-        cover_url = self.downloader.get_cover_url(
-            track_metadata,
-            COVER_SIZE_X_KEY_MAPPING_SONG,
-        )
-
-        decrypted_path = None
-        remuxed_path = None
-
-        print(json.dumps(tags))
-
-        if self.only_metadata:
-            logger.info(f'Only metadata requested, skipping download for "{track_info.get("name")}"')
-            return
-        
-        #if self.lrc_only:
-        #    pass
         if final_path.exists() and not self.downloader.overwrite:
             logger.warning(f'Track already exists at "{final_path}", skipping')
         else:

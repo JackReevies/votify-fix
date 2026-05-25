@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import traceback
 
+import json
 import inspect
 import logging
 import time
@@ -635,6 +636,7 @@ def main(
 
     global_playlist_metadata = None
 
+
     for url_index, url in enumerate(urls, start=1):
         url_progress = color_text(f"URL {url_index}/{len(urls)}", colorama.Style.DIM)
         logger.info(f'({url_progress}) Checking "{url}"')
@@ -659,6 +661,19 @@ def main(
                 f'({url_progress}) Failed to check "{url}"',
                 exc_info=not no_exceptions,
             )
+            continue
+
+        collection_tags = []
+
+        if url_info.type == "collection" and only_metadata:
+            for download_queue_item in download_queue:
+                if isinstance(download_queue_item, dict):
+                    media_metadata = download_queue_item.get("media_metadata", download_queue_item)
+                else:
+                    media_metadata = getattr(download_queue_item, "media_metadata", download_queue_item)
+                tags = downloader_song.build_tags_from_track_union(media_metadata)
+                collection_tags.append(tags)
+            print(json.dumps(collection_tags))
             continue
 
         for index, download_queue_item in enumerate(download_queue, start=1):
@@ -767,6 +782,17 @@ def main(
                     safe_playlist_metadata = global_playlist_metadata
 
                 if media_type == "track":
+                    if only_metadata and url_info.type == "collection":
+                        tags = downloader_song.build_tags(
+                            track_id=media_id,
+                            track_metadata=media_metadata_for_download,
+                            album_metadata=safe_album_metadata,
+                            playlist_metadata=safe_playlist_metadata,
+                            playlist_track=index,
+                        )
+                        collection_tags.append(tags)
+                        continue
+
                     if disable_wvd:
                         logger.warning("Widevine decryption is disabled, skipping.")
                         continue
@@ -816,7 +842,7 @@ def main(
 
             except Exception as e:
                 error_count += 1
-                logger.error(f'({queue_progress}) Failed to download "{track_name}"', exc_info=False)
+                logger.error(f'({queue_progress}) Failed to download "{track_name}"', exc_info=True)
                 #logger.error(f'({queue_progress}) Failed to download "{track_name}"', exc_info=not no_exceptions)
             finally:
                 if safemode:
@@ -831,4 +857,7 @@ def main(
                     )
                     time.sleep(wait_interval)
 
-        logger.info(f"Done ({error_count} error(s))")
+        if url_info.type == "collection" and only_metadata:
+            print(json.dumps(collection_tags))
+
+    logger.info(f"Done ({error_count} error(s))")

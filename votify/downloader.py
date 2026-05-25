@@ -142,6 +142,8 @@ class Downloader:
             self.cdm = Cdm.from_device(Device.load(self.wvd_path))
 
     def get_url_info(self, url: str) -> UrlInfo:
+        if "collection/tracks" in url:
+            return UrlInfo(type="collection", id="tracks")
         url_regex_result = re.search(self.URL_RE, url)
         if url_regex_result is None:
             raise Exception("Invalid URL")
@@ -264,6 +266,12 @@ class Downloader:
                         'playlist_metadata': playlist_metadata
                     })
 
+        elif media_type == "collection":
+            collection_tracks = self.spotify_api.get_collection_tracks()
+            for track in collection_tracks:
+                download_queue.append({
+                    'media_metadata': track,
+                })
         elif media_type == "track":
             download_queue.append(
                 DownloadQueueItem(
