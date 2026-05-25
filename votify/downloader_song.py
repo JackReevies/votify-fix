@@ -121,6 +121,18 @@ class DownloaderSong(DownloaderAudio):
         )
         label = album_info.get("courtesyLine") or album_info.get("label")
 
+        playable = True
+        reason = None
+        if track_info.get("isPlayable") is False:
+            playable = False
+        elif track_info.get("playable") is False:
+            playable = False
+        elif track_info.get("playability", {}).get("playable") is False:
+            playable = False
+            reason = track_info.get("playability", {}).get("reason")
+        if not reason:
+            reason = track_info.get("playabilityReason") or track_info.get("unplayableReason")
+
         tags = {
             "album": album_info.get("name"),
             "album_artist": self.downloader.get_artist_string(album_artists),
@@ -142,6 +154,8 @@ class DownloaderSong(DownloaderAudio):
             "label": label,
             "lyrics": lyrics_unsynced,
             "media_type": "Song",
+            "playable": playable,
+            "playability_reason": reason,
             "producer": (
                 self.downloader.get_artist_string(producers) if producers else None
             ),
@@ -376,16 +390,11 @@ class DownloaderSong(DownloaderAudio):
             logger.info(f'Only metadata requested, skipping download for "{tags.get("title", "")}"')
             return
 
-        if not gid_metadata:
-            logger.debug("Getting GID metadata")
-            try:
-                gid_metadata = self.downloader.get_gid_metadata(track_id, "track", product_name)
-            except TypeError:
-                gid_metadata = self.downloader.get_gid_metadata(track_id, "track")
-
-            if gid_metadata.get("original_video"):
-                logger.warning("Track is a music video, skipping.")
-                return
+        if gid_metadata is None:
+            logger.warning(
+                f'Track unavailable: Track unavailable.'
+            )
+            return
 
         if not stream_info:
             logger.debug("Getting stream info")

@@ -674,7 +674,7 @@ class Downloader:
             track_name: str,
             download_music_video: str,
             download_podcast_videos: str,
-    ) -> str:
+    ) -> str | None:
         playback_info = self.spotify_api.get_track_playback_info(media_id, media_type)
         user_product = audio_quality.get('data', {}).get('me', {}).get('account', {}).get('product', 'free')
 
@@ -697,11 +697,12 @@ class Downloader:
             )
             if video_file_id is None:
                 logger.error("There is no video for this media.")
-                return
+                return None
             return video_file_id
         else:
             if not media_items:
-                raise ValueError("No available Track (Empty response)")
+                logger.warning("No available track (empty playback response)")
+                return None
 
             expected_key = f"spotify:{media_type}:{media_id}"
 
@@ -714,15 +715,17 @@ class Downloader:
             server_name = metadata.get("name")
 
             if not server_name:
-                raise ValueError(f"Track Unavailable: No name returned")
+                logger.warning("Track unavailable: no name returned from server")
+                return None
 
             req_clean = track_name.lower().strip()
             srv_clean = server_name.lower().strip()
 
-            if (req_clean in srv_clean) or (srv_clean in req_clean):
-                track_manifest = track_manifest
-            else:
-                raise ValueError(f"Track Unavailable: No name returned")
+            if not ((req_clean in srv_clean) or (srv_clean in req_clean)):
+                logger.warning(
+                    f"Track unavailable: name mismatch (requested '{track_name}', got '{server_name}')"
+                )
+                return None
 
             try:
                 audio_file_id = next(
@@ -733,7 +736,8 @@ class Downloader:
                     if isinstance(f, dict) and f.get("bitrate") == int(target_bitrate)
                 )
             except StopIteration:
-                raise ValueError(f"No audio file found with bitrate {target_bitrate}")
+                logger.warning(f"No audio file found with bitrate {target_bitrate}")
+                return None
 
             return audio_file_id
 

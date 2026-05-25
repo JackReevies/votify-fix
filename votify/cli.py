@@ -770,7 +770,6 @@ def main(
 
                 gid_metadata = downloader.get_gid_metadata(media_id, media_type, spotify_api.user_profile, track_name,
                                                            download_music_videos, download_podcast_videos)
-
                 def get_meta(item, key):
                     val = getattr(item, key, None)
                     if val is None and isinstance(item, dict):
@@ -785,16 +784,6 @@ def main(
                     safe_playlist_metadata = global_playlist_metadata
 
                 if media_type == "track":
-                    if only_metadata and url_info.type in ("collection", "playlist", "artist"):
-                        tags = downloader_song.build_tags(
-                            track_id=media_id,
-                            track_metadata=media_metadata_for_download,
-                            album_metadata=safe_album_metadata,
-                            playlist_metadata=safe_playlist_metadata,
-                            playlist_track=index,
-                        )
-                        collection_tags.append(tags)
-                        continue
 
                     if disable_wvd:
                         logger.warning("Widevine decryption is disabled, skipping.")
