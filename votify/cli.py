@@ -679,8 +679,6 @@ def main(
             print(json.dumps(collection_tags))
             continue
 
-        print(json.dumps(download_queue))
-
         for index, download_queue_item in enumerate(download_queue, start=1):
             queue_progress = color_text(
                 f"Track {index}/{len(download_queue)} from URL {url_index}/{len(urls)}",
@@ -861,8 +859,5 @@ def main(
                         f"Waiting for {wait_interval} second(s) before continuing"
                     )
                     time.sleep(wait_interval)
-
-        if url_info.type in ("collection", "playlist", "artist") and only_metadata:
-            print(json.dumps(collection_tags))
 
     logger.info(f"Done ({error_count} error(s))")
