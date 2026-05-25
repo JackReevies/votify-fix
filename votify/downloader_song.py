@@ -57,8 +57,6 @@ class DownloaderSong(DownloaderAudio):
 
         all_artist_items = raw_artist_items + other_artist_items
 
-        print(json.dumps(all_artist_items))
-
         for item in all_artist_items:
             name = item.get("profile", {}).get("name")
             if name:
@@ -143,6 +141,7 @@ class DownloaderSong(DownloaderAudio):
             "track": int(track_info.get("trackNumber", 1)),
             "track_total": int(track_total),
             "url": external_url,
+            "seconds": track_info.get("duration", {}).get("totalMilliseconds", 0) / 1000.0,
         }
         return tags
 
@@ -194,7 +193,6 @@ class DownloaderSong(DownloaderAudio):
         if not album_metadata:
             logger.debug("Getting track metadata")
             track_metadata = self.downloader.spotify_api.get_track(track_id)
-            print(json.dumps(track_metadata))
 
         try:
             current_date = track_metadata['data']['trackUnion']['albumOfTrack'].get('release_date')
@@ -282,6 +280,8 @@ class DownloaderSong(DownloaderAudio):
         logger.debug("Getting track credits")
         track_credits = self.downloader.spotify_api.get_track_credits(track_id)
 
+        print(json.dumps(track_credits))
+
         tags = self.get_tags(
             track_metadata,
             album_metadata,
@@ -314,7 +314,6 @@ class DownloaderSong(DownloaderAudio):
         decrypted_path = None
         remuxed_path = None
 
-        # TOOD: Print out metadata to console as JSON
         print(json.dumps(tags))
         
         #if self.lrc_only:
