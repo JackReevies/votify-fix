@@ -68,18 +68,19 @@ class SpotifyApi:
         self._set_session()
 
     @classmethod
-    def from_cookies_file(cls, cookies_path: Path, **kwargs) -> SpotifyApi:
-        cookies = MozillaCookieJar(cookies_path)
-        cookies.load(ignore_discard=True, ignore_expires=True)
-        parse_cookie = lambda name: next(
-            (
-                cookie.value
-                for cookie in cookies
-                if cookie.name == name and cookie.domain == cls.SPOTIFY_COOKIE_DOMAIN
-            ),
-            None,
-        )
-        sp_dc = parse_cookie("sp_dc")
+    def from_cookies_file(cls, cookies_path: Path, sp_dc: str | None = None, **kwargs) -> SpotifyApi:
+        if sp_dc is None:
+            cookies = MozillaCookieJar(cookies_path)
+            cookies.load(ignore_discard=True, ignore_expires=True)
+            parse_cookie = lambda name: next(
+                (
+                    cookie.value
+                    for cookie in cookies
+                    if cookie.name == name and cookie.domain == cls.SPOTIFY_COOKIE_DOMAIN
+                ),
+                None,
+            )
+            sp_dc = parse_cookie("sp_dc")
         if sp_dc is None:
             raise ValueError(
                 '"sp_dc" cookie not found in cookies. '

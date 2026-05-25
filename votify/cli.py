@@ -206,6 +206,12 @@ except:
     default=Path("./cookies.txt"),
     help="Path to cookies file.",
 )
+@click.option(
+    "--sp-dc",
+    type=str,
+    default=None,
+    help="sp_dc cookie value. Overrides the one in cookies.txt if provided.",
+)
 # Downloader specific options
 @click.option(
     "--output-path",
@@ -432,6 +438,7 @@ def main(
         log_level: str,
         no_exceptions: bool,
         cookies_path: Path,
+        sp_dc: str | None,
         output_path: Path,
         temp_path: Path,
         wvd_path: Path,
@@ -474,7 +481,8 @@ def main(
     stream_handler.setFormatter(CustomLoggerFormatter())
     logger.addHandler(stream_handler)
 
-    cookies_path = prompt_path(True, cookies_path, "Cookies file")
+    if not sp_dc:
+        cookies_path = prompt_path(True, cookies_path, "Cookies file")
 
     logger.info("Starting Votify")
 
@@ -482,7 +490,7 @@ def main(
     if not safemode:
         logger.warning("You are not using safe mode, if you want to avoid account suspensions use '--safemode'")
 
-    spotify_api = SpotifyApi.from_cookies_file(cookies_path, secrets_url=spotify_secrets_url)
+    spotify_api = SpotifyApi.from_cookies_file(cookies_path, sp_dc=sp_dc, secrets_url=spotify_secrets_url)
 
     downloader = Downloader(
         spotify_api,
