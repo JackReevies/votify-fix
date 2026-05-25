@@ -118,6 +118,12 @@ class DownloaderSong(DownloaderAudio):
             "album": album_info.get("name"),
             "album_artist": self.downloader.get_artist_string(album_artists),
             "artist": self.downloader.get_artist_string(track_artists),
+            "main_artist": next(
+                artist["name"]
+                for role in track_credits.get("roleCredits", [])
+                for artist in role.get("artists", [])
+                if "main artist" in artist.get("subroles", [])
+            ),
             "compilation": False,
             "composer": (
                 self.downloader.get_artist_string(composers) if composers else None
@@ -279,8 +285,6 @@ class DownloaderSong(DownloaderAudio):
 
         logger.debug("Getting track credits")
         track_credits = self.downloader.spotify_api.get_track_credits(track_id)
-
-        print(json.dumps(track_credits))
 
         tags = self.get_tags(
             track_metadata,

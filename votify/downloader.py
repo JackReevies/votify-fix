@@ -829,7 +829,7 @@ class Downloader:
 
         return (
                 ", ".join(i["name"] for i in artist_list[:-1])
-                + f' & {artist_list[-1]["name"]}'
+                + f', {artist_list[-1]["name"]}'
         )
 
     def get_file_temp_path(
