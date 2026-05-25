@@ -18,10 +18,12 @@ class DownloaderSong(DownloaderAudio):
         downloader_audio: DownloaderAudio,
         lrc_only: bool = False,
         no_lrc: bool = False,
+        only_metadata: bool = False,
     ):
         self.__dict__.update(downloader_audio.__dict__)
         self.lrc_only = lrc_only
         self.no_lrc = no_lrc
+        self.only_metadata = only_metadata
 
     def get_tags(
             self,
@@ -319,6 +321,10 @@ class DownloaderSong(DownloaderAudio):
         remuxed_path = None
 
         print(json.dumps(tags))
+
+        if self.only_metadata:
+            logger.info(f'Only metadata requested, skipping download for "{track_info.get("name")}"')
+            return
         
         #if self.lrc_only:
         #    pass

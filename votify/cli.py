@@ -388,6 +388,11 @@ except:
     is_flag=True,
     help="Don't download the synced lyrics.",
 )
+@click.option(
+    "--only-metadata",
+    is_flag=True,
+    help="Only print track metadata without downloading.",
+)
 # DownloaderVideo specific options
 @click.option(
     "--video-format",
@@ -457,6 +462,7 @@ def main(
         remux_mode_audio: RemuxModeAudio,
         lrc_only: bool,
         no_lrc: bool,
+        only_metadata: bool,
         video_format: VideoFormat,
         remux_mode_video: RemuxModeVideo,
         safemode: bool,
@@ -517,6 +523,7 @@ def main(
         downloader_audio,
         lrc_only,
         no_lrc,
+        only_metadata,
     )
 
     downloader_episode = DownloaderEpisode(
