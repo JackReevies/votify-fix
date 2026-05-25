@@ -57,6 +57,8 @@ class DownloaderSong(DownloaderAudio):
 
         all_artist_items = raw_artist_items + other_artist_items
 
+        print(json.dumps(all_artist_items, indent=2))
+
         for item in all_artist_items:
             name = item.get("profile", {}).get("name")
             if name:
