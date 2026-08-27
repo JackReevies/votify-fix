@@ -252,6 +252,12 @@ class DownloaderSong(DownloaderAudio):
 
         return {
             "id": track_info.get("id"),
+            # Both the playlist and collection queries already carry isPlayable
+            # this far, and dropping it here left callers unable to tell a
+            # track Spotify has pulled from one merely not fetched yet — so
+            # they retry the permanently undownloadable forever. False means
+            # the track is still listed in the playlist but cannot be streamed.
+            "playable": track_info.get("isPlayable", True),
             "album": album_info.get("name"),
             "album_artist": self.downloader.get_artist_string(album_artists),
             "artist": self.downloader.get_artist_string(track_artists),
