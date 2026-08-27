@@ -1,11 +1,30 @@
-click
-colorama
-inquirerpy
-mutagen
-pillow
-protobuf
-pybase62
-pycryptodome
-pywidevine
-yt-dlp
-websocket-client
+# Exact versions proven working in the bun-spotify-streamer container.
+#
+# pyproject.toml declares the RANGES this code is compatible with; this file
+# records the one resolved set known to work end to end, for reproducing a
+# build or bisecting a suspected dependency regression:
+#
+#     pip install -r requirements.txt
+#
+# The Docker image installs via `pip install git+...`, which resolves from
+# pyproject.toml and ignores this file. That is deliberate — the image tracks
+# the compatible range so fixes still land, and this is the lever for pinning
+# a build down when something drifts.
+#
+# Refresh with `pip freeze` from a container known to be good.
+# Last verified: 2026-08-27, after the click 8.5 UNSET-sentinel fix.
+click==8.5.0
+colorama==0.4.6
+inquirerpy==0.3.4
+mutagen==1.48.1
+pfzy==0.3.4
+pillow==12.3.0
+prompt_toolkit==3.0.53
+protobuf==6.33.6
+pybase62==1.0.0
+pycryptodome==3.23.0
+pywidevine==1.9.0
+requests==2.34.2
+wcwidth==0.8.2
+websocket-client==1.9.0
+yt-dlp==2026.8.19

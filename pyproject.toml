@@ -3,17 +3,35 @@ name = "votify"
 description = "A command-line app for downloading songs, podcasts and videos from Spotify."
 requires-python = ">=3.10"
 authors = [{ name = "glomatico" }]
+# Bounded on purpose. This fork is installed straight from git by a Docker
+# build (bun-spotify-streamer), so an unpinned dependency is a time bomb: the
+# image rebuilds months later, resolves something new, and the failure looks
+# like a code change nobody made. That is exactly how click 8.5 arrived — it
+# changed the default of every is_flag option to an UNSET sentinel, which
+# poisoned ~/.votify/config.ini and killed every CLI invocation outright.
+#
+# Upper bounds sit at the next release allowed to break API promises. click is
+# bounded tighter (<8.6) because 8.5 already proved this project depends on
+# click behaviour that a MINOR release will happily change.
+#
+# requirements.txt holds the exact proven-working set for reproducing a build.
 dependencies = [
-    "click",
-    "colorama",
-    "inquirerpy",
-    "mutagen",
-    "pillow",
-    "protobuf",
-    "pybase62",
-    "pycryptodome",
-    "pywidevine",
-    "yt-dlp",
+    "click>=8.1,<8.6",
+    "colorama>=0.4.6,<0.5",
+    "inquirerpy>=0.3.4,<0.4",
+    "mutagen>=1.47,<2",
+    "pillow>=10,<13",
+    "protobuf>=5,<7",
+    "pybase62>=1,<2",
+    "pycryptodome>=3.20,<4",
+    "pywidevine>=1.8,<2",
+    # Imported by spotify_api.py and device_flow.py but never declared — they
+    # only ever worked because something else happened to pull them in.
+    "requests>=2.31,<3",
+    "websocket-client>=1.7,<2",
+    # Deliberately unbounded above: YouTube breaks yt-dlp on its own schedule,
+    # and a stale pin here is its own kind of outage.
+    "yt-dlp>=2025.1.1",
 ]
 readme = "README.md"
 dynamic = ["version"]
