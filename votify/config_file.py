@@ -8,18 +8,26 @@ import click
 import typing
 
 
-def _is_serializable(value: typing.Any) -> bool:
-    """Can this default survive a round trip through config.ini?
+def _is_unset(value: typing.Any) -> bool:
+    """Is this click's "no default was given" sentinel rather than a real value?
 
-    None is fine (it writes as "null"). Scalars are fine. An Enum is fine only
-    if its *value* is a scalar — click's UNSET sentinel is an Enum member
-    wrapping a bare object(), and that is exactly what must not be written.
+    It can't be compared against a constant (click moves it between versions)
+    and it can't be excluded by type: in click 8.5 it is an Enum member
+    wrapping a bare object(), so isinstance(x, Enum) is true for it.
+
+    What it cannot do is produce a string that reads back, and that is the
+    property this file actually depends on. Anything whose repr is the default
+    "<... object at 0x...>" has no meaningful text form, so writing str() of it
+    to an ini file only stores a memory address. Values with real repr — Path,
+    Enum members with scalar values, scalars themselves — serialize fine and
+    are left exactly as they were.
     """
-    if value is None or isinstance(value, (str, bool, int, float)):
-        return True
-    if isinstance(value, Enum):
-        return isinstance(value.value, (str, bool, int, float))
-    return False
+    if value is None:
+        return False
+    inner = value.value if isinstance(value, Enum) else value
+    if isinstance(inner, (str, bytes, bool, int, float)):
+        return False
+    return " object at 0x" in repr(inner)
 
 
 class ConfigFile:
@@ -68,11 +76,10 @@ class ConfigFile:
         # "<object object at 0x...>" into config.ini, and the next run dies
         # parsing that back before it so much as looks at the URL.
         #
-        # The sentinel is itself an Enum member whose value is a bare object(),
-        # so it cannot simply be excluded by type — the real test is whether
-        # the thing can round-trip through an ini file at all. A flag with no
-        # explicit default is False; anything else genuinely has no value.
-        if not _is_serializable(first):
+        # A flag with no explicit default is False, which is what it has always
+        # meant; a non-flag with no default genuinely has no value. Params that
+        # DO carry a real default (Path, Enum, scalar) are untouched.
+        if _is_unset(first):
             return "false" if getattr(param, "is_flag", False) else "null"
 
         if isinstance(first, Enum):
