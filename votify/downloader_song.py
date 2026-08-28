@@ -260,6 +260,10 @@ class DownloaderSong(DownloaderAudio):
             "playable": track_info.get("isPlayable", True),
             "album": album_info.get("name"),
             "album_artist": self.downloader.get_artist_string(album_artists),
+            # The joined string is ambiguous to split back apart — plenty of
+            # artists have a comma in their own name ("Tyler, The Creator").
+            # Callers that need the primary credit get the list instead.
+            "album_artists": [a["name"] for a in album_artists if a.get("name")],
             "artist": self.downloader.get_artist_string(track_artists),
             "title": track_info.get("name"),
             "url": f"https://open.spotify.com/track/{track_info.get('id')}",
