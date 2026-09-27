@@ -12,6 +12,13 @@ from .models import Lyrics, StreamInfoAudio
 logger = logging.getLogger("votify")
 
 
+def _json_fallback(o):
+    """Keep the metadata print alive whatever ends up in the tag dict."""
+    if isinstance(o, Lyrics):
+        return o.unsynced
+    return str(o)
+
+
 class DownloaderSong(DownloaderAudio):
     def __init__(
         self,
@@ -335,11 +342,18 @@ class DownloaderSong(DownloaderAudio):
         if self.lrc_only:
             logger.debug("Getting lyrics")
             lyrics = self.get_lyrics(track_id).synced
+        elif self.only_metadata:
+            # Metadata callers never see lyrics, and the lyrics endpoint is
+            # the first thing Spotify throttles on a burst of lookups.
+            lyrics = None
         else:
             try:
                 lyrics = self.get_lyrics(track_id).unsynced
-            except:
-                lyrics = Lyrics()
+            except Exception:
+                # Was `Lyrics()` — an object in a field every other path
+                # fills with a string, which then blew up the JSON print
+                # below the moment the lyrics endpoint rate-limited.
+                lyrics = None
 
         logger.debug("Getting track credits")
         track_credits = self.downloader.spotify_api.get_track_credits(track_id)
@@ -398,7 +412,7 @@ class DownloaderSong(DownloaderAudio):
         decrypted_path = None
         remuxed_path = None
 
-        print(json.dumps({**tags, "cover_url": cover_url}))
+        print(json.dumps({**tags, "cover_url": cover_url}, default=_json_fallback))
 
         if self.only_metadata:
             logger.info(f'Only metadata requested, skipping download for "{tags.get("title", "")}"')
