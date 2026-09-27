@@ -269,7 +269,10 @@ class DownloaderSong(DownloaderAudio):
             "url": f"https://open.spotify.com/track/{track_info.get('id')}",
             "seconds": track_info.get("duration", {}).get("totalMilliseconds", 0) / 1000.0,
             "duration": track_info.get("duration", {}).get("totalMilliseconds", 0) / 1000.0,
-            "main_artist": track_artists[0]["name"] if track_artists else "Unknown Artist"
+            "main_artist": track_artists[0]["name"] if track_artists else "Unknown Artist",
+            # Album cover, largest size. Callers embedding art after the fact
+            # (Vivy's backfill) need it without re-downloading the audio.
+            "cover_url": self.downloader.get_cover_url(track_union_data, COVER_SIZE_X_KEY_MAPPING_SONG),
         }
 
     def build_tags(
@@ -395,7 +398,7 @@ class DownloaderSong(DownloaderAudio):
         decrypted_path = None
         remuxed_path = None
 
-        print(json.dumps(tags))
+        print(json.dumps({**tags, "cover_url": cover_url}))
 
         if self.only_metadata:
             logger.info(f'Only metadata requested, skipping download for "{tags.get("title", "")}"')
